@@ -400,20 +400,33 @@ model_run <- function(model_input = NULL) {
       hits[1L]
     }
 
-    base_cost_col   <- .find_col(base_df,   c("^cost$"))
-    base_util_col   <- .find_col(base_df,   c("utility", "effect", "qaly"))
+    # Returns NA_real_ vector of length n when column is not found,
+    # preventing "differing number of rows" errors while still surfacing NAs.
+    .safe_col <- function(df, col_name, n) {
+      if (is.na(col_name)) return(rep(NA_real_, n))
+      v <- df[[col_name]]
+      if (is.null(v)) rep(NA_real_, n) else v
+    }
+
+    base_cost_col   <- .find_col(base_df,   c("^cost$", "cost"))
+    base_util_col   <- .find_col(base_df,   c("^utility$", "utility", "^effect$", "effect", "qaly"))
     base_icer_col   <- .find_col(base_df,   c("icer"))
-    carbon_cost_col <- .find_col(carbon_df, c("cost_with_carbon", "cost"))
+    carbon_cost_col <- .find_col(carbon_df, c("cost_with_carbon", "cost_with", "^cost$", "cost"))
     carbon_icer_col <- .find_col(carbon_df, c("icer"))
 
-    # Build result data frame
+    n_s <- nrow(base_df)
+
+    # Build result data frame — include raw column names for one-time diagnostics
+    # so we can fix the patterns if any were wrong.
     result <- data.frame(
       strategy              = base_df$strategy,
-      total_cost            = base_df[[base_cost_col]],
-      total_utility         = base_df[[base_util_col]],
-      icer_base             = base_df[[base_icer_col]],
-      total_cost_carbon_adj = carbon_df[[carbon_cost_col]],
-      icer_carbon_adj       = carbon_df[[carbon_icer_col]],
+      total_cost            = .safe_col(base_df,   base_cost_col,   n_s),
+      total_utility         = .safe_col(base_df,   base_util_col,   n_s),
+      icer_base             = .safe_col(base_df,   base_icer_col,   n_s),
+      total_cost_carbon_adj = .safe_col(carbon_df, carbon_cost_col, n_s),
+      icer_carbon_adj       = .safe_col(carbon_df, carbon_icer_col, n_s),
+      dbg_base_cols         = paste(names(base_df),   collapse = "|"),
+      dbg_carbon_cols       = paste(names(carbon_df), collapse = "|"),
       stringsAsFactors = FALSE
     )
 
