@@ -45,6 +45,19 @@ model_run <- function(model_input = NULL) {
     model_input <- get_default_input()
   }
 
+  # ---- Coerce JSON column-array lists to data frame --------------------------
+  # OpenCPU deserialises a JSON object of arrays as a named list, not a
+  # data.frame.  Detect this case (all elements are equal-length vectors with
+  # length > 1) and convert so the batch path is triggered correctly.
+  if (is.list(model_input) && !is.data.frame(model_input)) {
+    elem_lengths <- vapply(model_input, length, integer(1L))
+    if (length(elem_lengths) > 0L &&
+        length(unique(elem_lengths)) == 1L &&
+        unique(elem_lengths) > 1L) {
+      model_input <- as.data.frame(model_input, stringsAsFactors = FALSE)
+    }
+  }
+
   # ---- Batch: loop over rows -------------------------------------------------
   if (is.data.frame(model_input)) {
     results <- lapply(seq_len(nrow(model_input)), function(i) {
