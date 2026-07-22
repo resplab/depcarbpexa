@@ -90,8 +90,10 @@ model_run <- function(model_input = NULL) {
 
     # --------------------------------------------------------------------------
     # Parameters
+    # bquote() substitutes local variables as literals so heemod does not need
+    # to resolve them from its own evaluation environment.
     # --------------------------------------------------------------------------
-    parameters <- heemod::define_parameters(
+    parameters <- eval(bquote(heemod::define_parameters(
       p_subrec_epi2_base = 0.25,
       p_sub_epi1    = heemod::rate_to_prob(0.0158, to = 1/4),
       p_subrec_epi2 = heemod::rescale_prob(p = p_subrec_epi2_base, 1/4),
@@ -135,12 +137,12 @@ model_run <- function(model_input = NULL) {
       carbon_epi_dru = carbon_epi_dru_base / 4,
       carbon_epi_com_base = 225,
       carbon_epi_com = carbon_epi_com_base / 4,
-      # User-overridable parameters (bound from local scope)
-      scc          = scc_val,
-      dr           = dr_val,
-      dru_duration     = dru_dur_val,
-      dru_duration_com = dru_dur_com_val
-    )
+      # User-overridable parameters — injected as literals via bquote
+      scc          = .(scc_val),
+      dr           = .(dr_val),
+      dru_duration     = .(dru_dur_val),
+      dru_duration_com = .(dru_dur_com_val)
+    )))
 
     # --------------------------------------------------------------------------
     # Transition matrices
