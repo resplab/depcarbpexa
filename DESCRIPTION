@@ -1,0 +1,21 @@
+Package: depcarbpexa
+Title: ModelsCloud Wrapper for the Depression Carbon Footprint Markov Model
+Version: 0.1.0
+Authors@R:
+    person("Mehrshad", "Mokhtaran", email = "mehrshad.mokhtaran@ubc.ca",
+           role = c("aut", "cre"))
+Description: A ModelsCloud-compatible wrapper embedding a heemod-based Markov
+    model that compares three depression treatment strategies (cognitive
+    behavioural therapy, pharmacotherapy, combined) on healthcare costs,
+    quality-adjusted life years (QALYs), and carbon footprint of care. Supports
+    both single-scenario (named list) and batch (data frame) inputs, and
+    optionally incorporates the social cost of carbon into incremental
+    cost-effectiveness ratios.
+License: GPL-3
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Imports:
+    heemod
+Suggests:
+    testthat (>= 3.0.0)
