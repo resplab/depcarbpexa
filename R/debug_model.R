@@ -73,9 +73,23 @@ debug_model <- function() {
     heemod::discount(100, 0.025, period = 4, linear = TRUE)
   })
 
-  # 6. dispatch_strategy standalone
-  .record("dispatch_strategy", {
-    heemod::dispatch_strategy(cbt = 1, drug = 2, combined = 3)
+  # 6. dispatch_strategy must be tested inside define_state + run_model context
+  # (calling it standalone always errors — heemod injects .strategy only during
+  # model evaluation). Run a minimal 2-state model to verify it works end-to-end.
+  .record("dispatch_strategy_in_context", {
+    p <- eval(bquote(heemod::define_parameters(dr = .(0.025), cost_a = 100, cost_b = 200)))
+    tr <- heemod::define_transition(C, 0.1, 0, 1, state_names = c("A", "B"))
+    s_a <- heemd_s_a <- heemod::define_state(
+      cost = heemod::dispatch_strategy(s1 = cost_a, s2 = cost_b),
+      util = 0.8
+    )
+    s_b <- heemod::define_state(cost = 0, util = 0)
+    st1 <- heemod::define_strategy("A" = s_a, "B" = s_b, transition = tr)
+    st2 <- heemod::define_strategy("A" = s_a, "B" = s_b, transition = tr)
+    suppressMessages(heemod::run_model(
+      s1 = st1, s2 = st2, parameters = p,
+      cycles = 3L, cost = cost, effect = util
+    ))
   })
 
   data.frame(step = steps, result = results, stringsAsFactors = FALSE)
