@@ -68,8 +68,25 @@ model_run <- function(model_input = NULL) {
     return(do.call(rbind, results))
   }
 
-  # ---- Single: named list ----------------------------------------------------
+  # ---- Single: named list (wrapped in tryCatch to surface R errors as 200) ----
   if (is.list(model_input)) {
+    return(tryCatch(
+      .model_run_core(model_input),
+      error = function(e) data.frame(
+        error   = TRUE,
+        message = conditionMessage(e),
+        call    = paste(deparse(conditionCall(e)), collapse = " "),
+        stringsAsFactors = FALSE
+      )
+    ))
+  }
+
+  stop("model_input must be a named list or a data frame.", call. = FALSE)
+}
+
+# Internal worker — separated so tryCatch above can catch any R error and
+# return it as a 200 (visible) response instead of an opaque 400.
+.model_run_core <- function(model_input) {
 
     # Extract and coerce parameters (use different variable names so they
     # do not shadow heemod parameter names inside define_parameters())
@@ -382,7 +399,4 @@ model_run <- function(model_input = NULL) {
 
     rownames(result) <- NULL
     return(result)
-  }
-
-  stop("model_input must be a named list or a data frame.", call. = FALSE)
 }
