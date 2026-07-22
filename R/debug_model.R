@@ -92,5 +92,13 @@ debug_model <- function() {
     ))
   })
 
+  # 7. Full model_run end-to-end with default inputs — captures the real error
+  .record("full_model_run", {
+    model_run(list(
+      scc = 90, dr = 0.025, dru_duration = 8,
+      dru_duration_com = 8, cycles = 20L, seed = 1L
+    ))
+  })
+
   data.frame(step = steps, result = results, stringsAsFactors = FALSE)
 }
