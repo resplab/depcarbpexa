@@ -1,6 +1,6 @@
 Package: depcarbpexa
 Title: ModelsCloud Wrapper for the Depression Carbon Footprint Markov Model
-Version: 0.1.6
+Version: 0.1.7
 Authors@R:
     person("Mehrshad", "Mokhtaran", email = "mehrshad.mokhtaran@ubc.ca",
            role = c("aut", "cre"))

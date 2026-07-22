@@ -168,8 +168,8 @@ model_run <- function(model_input = NULL) {
       carbon_epi_com_base = 225,
       carbon_epi_com = carbon_epi_com_base / 4,
       # User-overridable parameters — injected as literals via bquote
-      scc          = .(scc_val),
-      dr           = .(dr_val),
+      scc              = .(scc_val),
+      dr               = .(dr_val),
       dru_duration     = .(dru_dur_val),
       dru_duration_com = .(dru_dur_com_val)
     )))
@@ -237,56 +237,13 @@ model_run <- function(model_input = NULL) {
     )
 
     # --------------------------------------------------------------------------
-    # States
+    # States — defined separately per strategy to avoid dispatch_strategy().
+    #
+    # dispatch_strategy() requires heemod to inject a .strategy context during
+    # model evaluation.  In R >= 4.x / OpenCPU environments this mechanism is
+    # unreliable.  Instead we define three independent sets of state objects
+    # (one per strategy) and run a single run_model() with all three strategies.
     # --------------------------------------------------------------------------
-    sub_state <- heemod::define_state(
-      utility = ut_sub,
-      cost = heemod::dispatch_strategy(
-        cbt      = 0,
-        drug     = heemod::discount(
-          ifelse(state_time <= dru_duration, cost_epi_dru, 0),
-          dr, period = 4, linear = TRUE),
-        combined = heemod::discount(
-          ifelse(state_time <= dru_duration_com, cost_epi_dru, 0),
-          dr, period = 4, linear = TRUE)
-      ),
-      carbon = heemod::dispatch_strategy(
-        cbt      = 0,
-        drug     = ifelse(state_time <= dru_duration,     carbon_epi_dru, 0),
-        combined = ifelse(state_time <= dru_duration_com, carbon_epi_dru, 0)
-      ),
-      cost_with_carbon = carbon * scc / 1000 + cost
-    )
-
-    epi_state <- heemod::define_state(
-      utility = ut_epi,
-      cost = heemod::dispatch_strategy(
-        cbt      = heemod::discount(cost_epi_cbt, dr, period = 4, linear = TRUE),
-        drug     = heemod::discount(cost_epi_dru, dr, period = 4, linear = TRUE),
-        combined = heemod::discount(cost_epi_com, dr, period = 4, linear = TRUE)
-      ),
-      carbon = heemod::dispatch_strategy(
-        cbt      = carbon_epi_cbt,
-        drug     = carbon_epi_dru,
-        combined = carbon_epi_com
-      ),
-      cost_with_carbon = carbon * scc / 1000 + cost
-    )
-
-    chr_state <- heemod::define_state(
-      utility = ut_chr,
-      cost = heemod::dispatch_strategy(
-        cbt      = heemod::discount(cost_chr_cbt, dr, period = 4, linear = TRUE),
-        drug     = heemod::discount(cost_chr_dru, dr, period = 4, linear = TRUE),
-        combined = heemod::discount(cost_chr_com, dr, period = 4, linear = TRUE)
-      ),
-      carbon = heemod::dispatch_strategy(
-        cbt      = carbon_chr_cbt,
-        drug     = carbon_chr_dru,
-        combined = carbon_chr_com
-      ),
-      cost_with_carbon = carbon * scc / 1000 + cost
-    )
 
     death_state <- heemod::define_state(
       utility          = 0,
@@ -295,30 +252,97 @@ model_run <- function(model_input = NULL) {
       cost_with_carbon = 0
     )
 
+    # --- CBT states -----------------------------------------------------------
+    # Subthreshold: no drug cost for CBT
+    sub_state_cbt <- heemod::define_state(
+      utility          = ut_sub,
+      cost             = 0,
+      carbon           = 0,
+      cost_with_carbon = 0
+    )
+    epi_state_cbt <- heemod::define_state(
+      utility          = ut_epi,
+      cost             = heemod::discount(cost_epi_cbt, dr, period = 4, linear = TRUE),
+      carbon           = carbon_epi_cbt,
+      cost_with_carbon = carbon * scc / 1000 + cost
+    )
+    chr_state_cbt <- heemod::define_state(
+      utility          = ut_chr,
+      cost             = heemod::discount(cost_chr_cbt, dr, period = 4, linear = TRUE),
+      carbon           = carbon_chr_cbt,
+      cost_with_carbon = carbon * scc / 1000 + cost
+    )
+
+    # --- Drug states ----------------------------------------------------------
+    # Subthreshold: drug cost only while within dru_duration cycles
+    sub_state_dru <- heemod::define_state(
+      utility          = ut_sub,
+      cost             = heemod::discount(
+                           ifelse(state_time <= dru_duration, cost_epi_dru, 0),
+                           dr, period = 4, linear = TRUE),
+      carbon           = ifelse(state_time <= dru_duration, carbon_epi_dru, 0),
+      cost_with_carbon = carbon * scc / 1000 + cost
+    )
+    epi_state_dru <- heemod::define_state(
+      utility          = ut_epi,
+      cost             = heemod::discount(cost_epi_dru, dr, period = 4, linear = TRUE),
+      carbon           = carbon_epi_dru,
+      cost_with_carbon = carbon * scc / 1000 + cost
+    )
+    chr_state_dru <- heemod::define_state(
+      utility          = ut_chr,
+      cost             = heemod::discount(cost_chr_dru, dr, period = 4, linear = TRUE),
+      carbon           = carbon_chr_dru,
+      cost_with_carbon = carbon * scc / 1000 + cost
+    )
+
+    # --- Combined states ------------------------------------------------------
+    # Subthreshold: drug cost only while within dru_duration_com cycles
+    sub_state_com <- heemod::define_state(
+      utility          = ut_sub,
+      cost             = heemod::discount(
+                           ifelse(state_time <= dru_duration_com, cost_epi_dru, 0),
+                           dr, period = 4, linear = TRUE),
+      carbon           = ifelse(state_time <= dru_duration_com, carbon_epi_dru, 0),
+      cost_with_carbon = carbon * scc / 1000 + cost
+    )
+    epi_state_com <- heemod::define_state(
+      utility          = ut_epi,
+      cost             = heemod::discount(cost_epi_com, dr, period = 4, linear = TRUE),
+      carbon           = carbon_epi_com,
+      cost_with_carbon = carbon * scc / 1000 + cost
+    )
+    chr_state_com <- heemod::define_state(
+      utility          = ut_chr,
+      cost             = heemod::discount(cost_chr_com, dr, period = 4, linear = TRUE),
+      carbon           = carbon_chr_com,
+      cost_with_carbon = carbon * scc / 1000 + cost
+    )
+
     # --------------------------------------------------------------------------
     # Strategies
     # --------------------------------------------------------------------------
-    .make_strategy <- function(transition) {
+    .make_strategy <- function(sub_s, epi_s, chr_s, transition) {
       heemod::define_strategy(
-        "subthreshold"                              = sub_state,
-        "subthreshold recovery after 1st episode"  = sub_state,
-        "subthreshold recovery after 2nd episode"  = sub_state,
-        "subthreshold recovery after 3rd episode"  = sub_state,
-        "subthreshold recovery after 4th episode"  = sub_state,
-        "1st episode"   = epi_state,
-        "2nd episode"   = epi_state,
-        "3rd episode"   = epi_state,
-        "4th episode"   = epi_state,
-        "5th episode"   = epi_state,
-        "chronic state" = chr_state,
+        "subthreshold"                              = sub_s,
+        "subthreshold recovery after 1st episode"  = sub_s,
+        "subthreshold recovery after 2nd episode"  = sub_s,
+        "subthreshold recovery after 3rd episode"  = sub_s,
+        "subthreshold recovery after 4th episode"  = sub_s,
+        "1st episode"   = epi_s,
+        "2nd episode"   = epi_s,
+        "3rd episode"   = epi_s,
+        "4th episode"   = epi_s,
+        "5th episode"   = epi_s,
+        "chronic state" = chr_s,
         "death"         = death_state,
         transition = transition
       )
     }
 
-    strats_cbt <- .make_strategy(transition_cbt)
-    strats_dru <- .make_strategy(transition_dru)
-    strats_com <- .make_strategy(transition_com)
+    strats_cbt <- .make_strategy(sub_state_cbt, epi_state_cbt, chr_state_cbt, transition_cbt)
+    strats_dru <- .make_strategy(sub_state_dru, epi_state_dru, chr_state_dru, transition_dru)
+    strats_com <- .make_strategy(sub_state_com, epi_state_com, chr_state_com, transition_com)
 
     # --------------------------------------------------------------------------
     # Run models (suppress output; two runs — base cost and carbon-adjusted cost)
