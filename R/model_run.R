@@ -105,6 +105,19 @@ model_run <- function(model_input = NULL) {
 
     set.seed(seed_val)
 
+    # ---- R 4.x / OpenCPU compatibility fix -----------------------------------
+    # heemod uses getOption("heemod.env") as its internal scratch environment.
+    # In an OpenCPU execution context that option is never set, so heemod gets
+    # NULL and then calls assign(..., envir = NULL) which is defunct in R >= 4.1.
+    # Pre-initialise the environment so heemod finds a valid one.
+    .he <- getOption("heemod.env")
+    if (!is.environment(.he)) {
+      .he <- new.env(parent = asNamespace("heemod"))
+      options("heemod.env" = .he)
+    }
+    # --------------------------------------------------------------------------
+
+
     # --------------------------------------------------------------------------
     # Parameters
     # bquote() substitutes local variables as literals so heemod does not need
